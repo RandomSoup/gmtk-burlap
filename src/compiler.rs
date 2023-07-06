@@ -1,3 +1,4 @@
+#![allow(unused_imports, unused_variables, dead_code)]
 use std::cmp::Ordering;
 use std::path::PathBuf;
 
@@ -5,7 +6,7 @@ use crate::Arguments;
 use crate::common::IMPOSSIBLE_STATE;
 use crate::lexer::TokenType;
 use crate::parser::{ASTNode, ASTNode::*};
-use crate::value::Value;
+//use crate::value::Value;
 
 pub struct Compiler {}
 
@@ -18,7 +19,7 @@ impl Compiler {
 fn compile_unary(
     compiler: &mut Compiler,
     op: &TokenType, val: &Box<ASTNode>
-) -> bool {
+) -> Option<String> {
     match op {
         // -/!
         TokenType::Minus => {
@@ -32,74 +33,92 @@ fn compile_unary(
         },
         _ => panic!("{}", IMPOSSIBLE_STATE),
     }
-    return true;
+    return None;
 }
 
 fn compile_binop(
     compiler: &mut Compiler,
     lhs: &Box<ASTNode>, op: &TokenType, rhs: &Box<ASTNode>
-) -> bool {
-    true
+) -> Option<String> {
+    None
 }
 
-fn compile_expr(compiler: &mut Compiler, node: &ASTNode) -> bool {
-    match node {
+fn op_to_char(op: TokenType) -> char {
+    match op {
+        TokenType::Times => '*',
+        TokenType::Plus => '+',
+        TokenType::Minus => '-',
+        TokenType::Div => '/',
+        TokenType::Mod => '%',
+        _ => panic!("inconceivable!"),
+    }
+}
+
+fn compile_expr(compiler: &mut Compiler, node: &ASTNode) -> Option<String> {
+    Some(match node {
         // Values
         VarExpr(val) => {
+            format!("{}", val)
         },
         StringExpr(val) => {
+            format!("std::string(\"{}\")", val)
         },
         NumberExpr(val) => {
+            format!("{}", val)
         },
         DecimalExpr(val) => {
+            format!("{}", val)
         },
         BoolExpr(val) => {
+            format!("{}", val)
         },
         NoneExpr => {
+            format!("None{{}}")
         },
         ByteExpr(val) => {
+            format!("(char) {}", val)
         },
         // Binop/unary
         BinopExpr(lhs, op, rhs) => {
-            return compile_binop(compiler, lhs, op, rhs);
+            let ret = "(".to_owned() + &compile_expr(compiler, lhs)?;
+            ret += " " + op_to_char(op) + " ";
+            ret += compile_expr(compiler, rhs)? + ")";
+            ret
         }
         UnaryExpr(op, val) => {
             return compile_unary(compiler, op, val);
         },
         // Calls
-        CallExpr(expr, args) => {
-        },
+        //CallExpr(expr, args) => {
+        //},
         // List
-        ListExpr(keys, values, fast) => {
-        },
+        //ListExpr(keys, values, fast) => {
+        //},
         // Indexes
-        IndexExpr(val, index) => {
-        },
+        //IndexExpr(val, index) => {
+        //},
         _ => {
             panic!("Unknown token! {:?}", node);
         }
-    };
-    return true;
+    })
 }
 
 fn _compile_body(
     compiler: &mut Compiler, nodes: &Vec<ASTNode>
-) -> bool {
+) -> Option<String> {
     // Compile all nodes
+    let mut ret = "".to_string();
     for node in nodes {
-        if !compile_stmt(compiler, node) {
-            // Pass it down
-            return false;
-        }
+        ret += &compile_stmt(compiler, node)?;
     }
-    return true;
+    return Some(ret);
 }
 fn compile_body(
     compiler: &mut Compiler, node: &ASTNode
-) -> bool {
+) -> Option<String> {
     let BodyStmt(nodes) = node else {
         if *node == Nop {
-            return true;
+            return Some("{}".to_string());
         }
         panic!("compile_body got non-body node!");
     };
@@ -108,7 +127,7 @@ fn compile_body(
 
 fn compile_stmt(
     compiler: &mut Compiler, node: &ASTNode
-) -> bool {
+) -> Option<String> {
     match node {
         // Statements
         LetStmt(name, ltype, val) => {
@@ -122,6 +141,8 @@ fn compile_stmt(
         BodyStmt(nodes) => return _compile_body(compiler, nodes),
         FunctiStmt(name, fargs, rettype, body) => {
         },
+        ForwardStmt(name, fargs, rettype) => {
+        },
         ReturnStmt(ret) => {
         },
         ImportStmt() => {
@@ -133,19 +154,18 @@ fn compile_stmt(
         // Expressions
         _ => return compile_expr(compiler, node)
     };
-    return true;
+    return None;
 }
 
-pub fn compile(ast: Vec<ASTNode>) -> bool {
+pub fn compile(ast: Vec<ASTNode>) -> Option<String> {
     if ast.is_empty() {
-        return true;
+        return Some("".to_string());
     }
     // Compile
     let mut compiler = Compiler::new();
+    let mut ret = "".to_string();
     for node in &ast {
-        if !compile_stmt(&mut compiler, node) {
-            return false;
-        }
+        ret += &compile_stmt(&mut compiler, node)?;
     }
-    return true;
+    return Some(ret);
 }

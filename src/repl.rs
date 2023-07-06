@@ -251,9 +251,10 @@ pub fn repl(args: &mut Arguments) {
                 println!("Ast: {:?}", ast);
             }
             // Compile
-            if !compile(ast) {
+            let Some(str) = compile(ast) else {
                 continue;
-            }
+            };
+            println!("{}", str);
             // Reset file name (imports mess it up during compiling)
             args.name = "<stdin>".to_string();
         }

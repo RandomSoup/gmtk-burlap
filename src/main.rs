@@ -193,8 +193,9 @@ fn main() {
         let Some(ast) = to_ast(&mut args, None) else {
             exit(1);
         };
-        if !compile(ast) {
+        let Some(str) = compile(ast) else {
             exit(1);
-        }
+        };
+        println!("{}", str);
     }
 }

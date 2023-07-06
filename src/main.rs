@@ -13,14 +13,12 @@ mod lexer;
 mod parser;
 mod repl;
 mod value;
-mod vm;
 
 use crate::compiler::compile;
 use crate::common::{print_err, ErrType};
 use crate::lexer::lex;
 use crate::parser::{parse, ASTNode};
 use crate::repl::repl;
-use crate::vm::{run, Vm};
 
 #[derive(Clone)]
 pub struct Arguments {
@@ -195,15 +193,7 @@ fn main() {
         let Some(ast) = to_ast(&mut args, None) else {
             exit(1);
         };
-        let mut vm = Vm::new(args.clone());
-        // Fix import path
-        vm.program.path = args.path.clone();
-        vm.program.path.pop();
-        if !compile(ast, &mut args, &mut vm.program) {
-            exit(1);
-        }
-        // Run
-        if !run(&mut vm) {
+        if !compile(ast) {
             exit(1);
         }
     }

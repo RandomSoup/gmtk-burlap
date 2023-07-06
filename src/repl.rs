@@ -1,4 +1,3 @@
-use crate::vm::{run, Vm};
 #[cfg(feature = "fancyrepl")]
 use crate::lexer::{lex, TokenType};
 use crate::parser::{VecFunctis, _parse};
@@ -185,7 +184,6 @@ pub fn get_repl_line() -> &'static mut String {
 pub fn repl(args: &mut Arguments) {
     // Print welcome msg
     println!("Burlap v{}", env!("CARGO_PKG_VERSION"));
-    let mut vm = Vm::new(args.clone());
     #[cfg(feature = "fancyrepl")]
     let mut rl = Editor::new().unwrap();
     #[cfg(not(feature = "fancyrepl"))]
@@ -196,7 +194,7 @@ pub fn repl(args: &mut Arguments) {
         brackets: MatchingBracketValidator::new(),
         name: args.name.clone(),
         color: args.extensions.contains(&"color".to_string()),
-        symbols: vm.get_symbols(true)
+        symbols: vec!["".to_string()]
     }));
     // Try to get the home dir
     let hist_file = match home_dir() {
@@ -253,24 +251,11 @@ pub fn repl(args: &mut Arguments) {
                 println!("Ast: {:?}", ast);
             }
             // Compile
-            if !compile(ast, args, &mut vm.program) {
+            if !compile(ast) {
                 continue;
             }
             // Reset file name (imports mess it up during compiling)
             args.name = "<stdin>".to_string();
-            // Run
-            if vm.program.ops.len() == vm.at + 1 {
-                continue;
-            }
-            if vm.at != 0 {
-                vm.at += 1;
-            }
-            run(&mut vm);
-            // Update symbols
-            #[cfg(feature = "fancyrepl")]
-            {
-                rl.helper_mut().unwrap().symbols = vm.get_symbols(true);
-            }
         }
     }
     // Save history

@@ -5,6 +5,19 @@ use crate::lexer::{Token, TokenType};
 use TokenType::*;
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum NodeType {
+    Untyped,
+    Int,
+    Float,
+    Bool,
+    Byte,
+    String,
+    List(Box<NodeType>),
+    None,
+    Functi(Vec<NodeType>, Box<NodeType>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTNode {
     // Expressions
     // String, ("Example")
@@ -35,12 +48,14 @@ pub enum ASTNode {
     // Statements
     // Body, ([Call(Var(print), [String("Hello World")])])
     BodyStmt(Vec<ASTNode>),
-    // Function, (foobar, [a, b, c], Body(...))
-    FunctiStmt(String, Vec<String>, Box<ASTNode>),
+    // Function, (foobar, [(a, Int), (b, Bool), (c, Float)], Body(...), return type)
+    FunctiStmt(String, Vec<(String, NodeType)>, Box<ASTNode>, NodeType),
+    // Function forward, (foobar, [(a, Int), (b, Bool), (c, Float)], return type)
+    ForwardStmt(String, Vec<(String, NodeType)>, NodeType),
     // If/else if, (Binop(x == 1), Body(trueBody), Body(falseBody or nop))
     IfStmt(Box<ASTNode>, Box<ASTNode>, Box<ASTNode>),
-    // Let, (x, 47)
-    LetStmt(String, Box<ASTNode>),
+    // Let, (x, Int, 47)
+    LetStmt(String, NodeType, Box<ASTNode>),
     // Return, ("Return Val")
     ReturnStmt(Box<ASTNode>),
     // Iter loop, (i, range(0, 100), Body(...))
@@ -156,14 +171,14 @@ fn check_unique(parser: &mut Parser, name: &String, arg_num: i32) {
             parser,
             format!("the name \"{}\" is already taken by a variable", *name).as_str()
         );},
-        SymLookupRes::TakenByFuncti => {error!(
+        /*SymLookupRes::TakenByFuncti => {error!(
             parser,
             if arg_num == -1 {
                 format!("the name \"{}\" is already taken by a function", *name)
             } else {
                 format!("cannot overload \"{}\" with the same number of args", *name)
             }.as_str()
-        );},
+        );},*/
         SymLookupRes::TakenByBuiltin => {error!(
             parser,
             if arg_num == -1 {
@@ -172,7 +187,7 @@ fn check_unique(parser: &mut Parser, name: &String, arg_num: i32) {
                 format!("cannot overload \"{}\" as it is a builtin function", *name)
             }.as_str()
         );},
-        SymLookupRes::Free => if arg_num != -1 {
+        _ => if arg_num != -1 {
             parser.functis.push((name.clone(), arg_num));
         } else {
             parser.vars.push(name.clone());
@@ -230,6 +245,34 @@ fn check_call(parser: &mut Parser, name: &String, arg_num: i32) {
             format!("incorrect number of arguments for \"{}\"", *name).as_str()
         );
     }
+}
+
+// Typee
+fn parse_type(parser: &mut Parser) -> Option<NodeType> {
+    let Identifier(type_name) = parser.current() else {
+        if parser.current() == None {
+            return Some(NodeType::None);
+        }
+        error!(parser, "expected type name");
+        return Option::None;
+    };
+    parser.next();
+    Some(match type_name.as_str() {
+        "int" => NodeType::Int,
+        "float" => NodeType::Float,
+        "byte" => NodeType::Byte,
+        "string" => NodeType::String,
+        "list" => {
+            eat!(parser, Lt, "Expected < in template")?;
+            let inner = parse_type(parser)?;
+            eat!(parser, Gt, "Expected > in template")?;
+            NodeType::List(Box::new(inner))
+        },
+        e => {
+            error!(parser, format!("unknown type \"{}\"", e).as_str());
+            return Option::None;
+        }
+    })
 }
 
 // Expressions
@@ -759,21 +802,13 @@ fn parse_let(parser: &mut Parser) -> Option<ASTNode> {
     }
     check_unique(parser, &name, -1);
     parser.next();
-    // Let without value (non-standard)
-    if let Semicolon = parser.current() {
+    // Type
+    let ltype = if parser.current() == Colon {
         parser.next();
-        if parser.args.extensions.contains(&"auto-none".to_string()) {
-            return Some(ASTNode::LetStmt(name, Box::new(ASTNode::NoneExpr)));
-        } else {
-            error!(parser, "let must have value");
-            error!(
-                parser,
-                "this can be disabled by the auto none extension (`-use-auto-none`)",
-                ErrType::Hint
-            );
-            return Option::None;
-        }
-    }
+        parse_type(parser)?
+    } else {
+        NodeType::Untyped
+    };
     // Equals symbol
     eat!(parser, Equals, "expected '=' in variable declaration")?;
     // Let with value
@@ -781,7 +816,7 @@ fn parse_let(parser: &mut Parser) -> Option<ASTNode> {
     // Semicolon
     eat_semicolon!(parser)?;
     // Return
-    return Some(ASTNode::LetStmt(name, Box::new(value)));
+    return Some(ASTNode::LetStmt(name, ltype, Box::new(value)));
 }
 
 // Returning
@@ -838,25 +873,28 @@ fn parse_functi(parser: &mut Parser) -> Option<ASTNode> {
     parser.next();
     // Args
     eat!(parser, Lparan, "expected '(' at start of argument list")?;
-    let mut args: Vec<String> = vec![];
+    let mut args: Vec<(String, NodeType)> = vec![];
     loop {
         if let Rparan = parser.current() {
             break;
         }
         // Arg name
-        if let Identifier(n) = parser.current() {
-            check_unique(parser, &n, -1);
-            args.push(parser.name.clone() + "::" + &n);
-            parser.next();
-        } else {
+        let Identifier(n) = parser.current() else {
             error!(parser, "expected argument name");
             return Option::None;
-        }
+        };
+        check_unique(parser, &n, -1);
+        let n = parser.name.clone() + "::" + &n;
+        parser.next();
+        // Arg type
+        eat!(parser, Colon, "Give me a type!")?;
+        let atype = parse_type(parser)?;
+        args.push((n, atype));
         // Comma for new args or rparan for end of args
-        if let Rparan | Comma = parser.current() {} else {
+        let (Rparan | Comma) = parser.current() else {
             error!(parser, "expected comma or ')' in argument list");
             return Option::None;
-        }
+        };
         // Eat comma
         if let Comma = parser.current() {
             parser.next();
@@ -864,22 +902,24 @@ fn parse_functi(parser: &mut Parser) -> Option<ASTNode> {
     }
     parser.next();
     check_unique(parser, &name, args.len().try_into().unwrap());
+    // Return type
+    let rettype = if parser.current() == Colon {
+        parser.next();
+        parse_type(parser)?
+    } else {
+        NodeType::None
+    };
     // Body
-    if let Lbrace = parser.current() {} else {
-        error!(parser, "expected '{' to start function body");
-        err(
-            &parser.tokens[parser.at].stream,
-            "forward declaration isn't supported", ErrType::Hint,
-            parser.args.extensions.contains(&"color".to_string())
-        );
-        return Option::None;
-    }
+    let Lbrace = parser.current() else {
+        eat!(parser, Semicolon, "expected '{' or ';'")?;
+        return Some(ASTNode::ForwardStmt(name, args, rettype));
+    };
     parser.in_func = true;
     let body = parse_body(parser);
     parser.in_func = false;
     parser.vars.truncate(parser.vars.len() - args.len());
     // Return
-    return Some(ASTNode::FunctiStmt(name, args, Box::new(body?)));
+    return Some(ASTNode::FunctiStmt(name, args, Box::new(body?), rettype));
 }
 
 // Main parsing

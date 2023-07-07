@@ -1,10 +1,10 @@
-use futures::executor::block_on;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::fs::OpenOptions;
 use std::io::{Write, Read, Seek, SeekFrom};
 use std::io;
 
+use raylib::prelude::*;
 use crate::Arguments;
 #[cfg(feature = "cffi")]
 use crate::cffi::{load_functi, load_library};
@@ -14,7 +14,21 @@ use crate::compiler::Program;
 use crate::value::{FileInfo, Value};
 
 use rustc_hash::FxHashMap;
-use crate::asset_manager::AssetManager;
+
+#[allow(unused_imports)]
+use raylib::prelude::*;
+use std::collections::HashMap;
+use std::convert::TryInto;
+use lazy_static::lazy_static;
+use std::sync::Mutex;
+
+static mut RL: Option<RaylibHandle> = None;
+static mut RAYLIB_THREAD: Option<RaylibThread> = None;
+static mut D: Option<RaylibDrawHandle> = None;
+lazy_static! {
+    static ref TEXTURES: Mutex<HashMap<i32, Texture2D>> = Mutex::new(HashMap::new());
+}
+
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
@@ -114,8 +128,6 @@ pub enum Opcode {
     JMPNT,
 }
 
-use macroquad::prelude::*;
-
 // A functie is a sack functions implemented in rust
 type Functie = fn(&mut Vm, Vec<Value>) -> Result<Value, String>;
 
@@ -123,7 +135,6 @@ type Functie = fn(&mut Vm, Vec<Value>) -> Result<Value, String>;
 pub struct Vm {
     // Extensions
     pub args: Arguments,
-    pub assets: AssetManager,
     // File name
     pub filename: String,
 
@@ -155,11 +166,19 @@ pub struct Vm {
 
 impl Vm {
     // Init
-    pub fn new(args: Arguments, assets: AssetManager) -> Vm {
+    pub fn new(args: Arguments) -> Vm {
         // Builtin functions
         let mut functies = FxHashMap::with_capacity_and_hasher(
             16, Default::default()
         );
+        // GMTK
+        functies.insert("init".to_string(), sk_initialize as Functie);
+        functies.insert("should_close".to_string(), sk_should_close as Functie);
+        functies.insert("begin_drawing".to_string(), sk_begin_drawing as Functie);
+        functies.insert("draw_text".to_string(), sk_draw_text as Functie);
+        functies.insert("load_texture".to_string(), sk_load_texture as Functie);
+        functies.insert("draw_texture".to_string(), sk_draw_texture as Functie);
+        functies.insert("clear_background".to_string(), sk_clear_background as Functie);
         // Builtins
         functies.insert("print".to_string(), sk_print as Functie);
         functies.insert("input".to_string(), sk_input as Functie);
@@ -179,9 +198,6 @@ impl Vm {
         functies.insert("float".to_string(), sk_float as Functie);
         functies.insert("string".to_string(), sk_string as Functie);
         functies.insert("byte".to_string(), sk_byte as Functie);
-        functies.insert("clear_background".to_string(), sk_clear_background as Functie);
-        functies.insert("draw_text".to_string(), sk_draw_text as Functie);
-        functies.insert("next_frame".to_string(), sk_next_frame as Functie);
         // Non-togglable internals
         functies.insert("__burlap_range".to_string(), sk_fastrange as Functie);
         // Burlap internal functies
@@ -219,7 +235,6 @@ impl Vm {
             stack: vec![], scope: vec![], call_frames: vec![],
             at: 0, var_min: 0, program: Program::new(),
             filename: "".to_string(),
-            assets: assets
         }
     }
 
@@ -523,47 +538,140 @@ impl Vm {
     }
 }
 
-fn get_col_from_str(str: String) -> Result<Color, String> {
-    return Ok(match str.as_str() {
-        "WHITE" => WHITE,
-        "GREEN" => GREEN,
-        "RED" => RED,
-        "BLUE" => BLUE,
-        "YELLOW" => YELLOW,
-        "BLACK" => BLACK,
-        "DARKGRAY" => DARKGRAY,
-        _ => return Err(format!("Cannot convert {} to a color", str)),
-    });
-}
-
-fn sk_clear_background(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
-    let col = get_col_from_str(args[0].to_string()?)?;
-    clear_background(col);
-    return Ok(Value::None);
-}
-
-fn sk_next_frame(_vm: &mut Vm, _args: Vec<Value>) -> Result<Value, String> {
-    println!("Next frame...");
-    block_on(next_frame());
-    println!("Next frame!");
-    return Ok(Value::None);
-}
-
-fn sk_draw_text(_vm: &mut Vm, args:Vec<Value>) -> Result<Value, String> {
-    let text = args[0].to_string()?;
-    let (x, y) = (args[1].to_float(), args[2].to_float());
-    let font_size = args[3].to_float();
-    let color = get_col_from_str(args[4].to_string()?)?;
-    draw_text(
-        text.as_str(),
-        x, y,
-        font_size,
-        color
-    );
-    return Ok(Value::None);
+fn to_color(str: String) -> (u8, u8, u8) {
+    match str.as_str() {
+        "lightgray" => (200, 200, 200),
+        "gray" => (130, 130, 130),
+        "darkgray" => (80, 80, 80),
+        "yellow" => (253, 249, 0),
+        "gold" => (255, 203, 0),
+        "orange" => (255, 161, 0),
+        "pink" => (255, 109, 194),
+        "red" => (230, 41, 55),
+        "maroon" => (190, 33, 55),
+        "green" => (0, 228, 48),
+        "lime" => (0, 158, 47),
+        "darkgreen" => (0, 117, 44),
+        "skyblue" => (102, 191, 255),
+        "blue" => (0, 121, 241),
+        "darkblue" => (0, 82, 172),
+        "purple" => (200, 122, 255),
+        "violet" => (135, 60, 190),
+        "darkpurple" => (112, 31, 126),
+        "beige" => (211, 176, 131),
+        "brown" => (127, 106, 79),
+        "darkbrown" => (76, 63, 47),
+        "white" => (255, 255, 255),
+        "black" => (0, 0, 0),
+        "magenta" => (255, 0, 255),
+        "raywhite" => (245, 245, 245),
+        c => panic!("what is the color {}?!", c),
+    }
 }
 
 // Builtin Functions (prefixed with 'sk_')
+fn sk_initialize(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
+    let (width, height) = (args[0].to_int(), args[1].to_int());
+    let title = args[2].to_string()?;
+    let (mut handle, thread) = raylib::init()
+        .size(width, height)
+        .title(&title)
+        .build();
+    unsafe {
+        handle.set_target_fps(60);
+        RL = Some(handle);
+        RAYLIB_THREAD = Some(thread);
+    }
+    Ok(Value::None)
+}
+
+// Window Should Close
+fn sk_should_close(_vm: &mut Vm, _args: Vec<Value>) -> Result<Value, String> {
+    unsafe {
+        Ok(Value::Bool(RL.as_ref().map_or(false, |rl| rl.window_should_close())))
+    }
+}
+
+// Begin Drawing
+fn sk_begin_drawing(_vm: &mut Vm, _args: Vec<Value>) -> Result<Value, String> {
+    unsafe {
+        if let Some(thread) = RAYLIB_THREAD.as_ref() {
+            if let Some(rl) = RL.as_mut() {
+                D = Some(rl.begin_drawing(thread));
+            }
+        }
+    }
+    Ok(Value::None)
+}
+
+// Clear Background
+fn sk_clear_background(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
+    let (r,g,b) = to_color(args[0].to_string()?);
+    unsafe {
+        if let Some(d) = D.as_mut() {
+            d.clear_background(Color::new(r, g, b, 255u8));
+        }
+    }
+     Ok(Value::None)
+}
+
+// Draw text
+fn sk_draw_text(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
+    let text = args[0].to_string()?;
+    let (x, y) = (
+        args[1].to_int(), args[2].to_int()
+    );
+    let font_size = args[3].to_int();
+    let (r, g, b) = to_color(args[4].to_string()?);
+    unsafe {
+        if let Some(d) = D.as_mut() {
+            d.draw_text(text.as_str(), x, y, font_size, Color::new(r, g, b, 255u8));
+        }
+    }
+    Ok(Value::None)
+}
+
+fn sk_load_texture(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
+    let filename = args[0].to_string()?;
+    unsafe {
+        if let Some(rl) = RL.as_mut() {
+            if let Some(thread) = RAYLIB_THREAD.as_ref() {
+                if let Ok(texture) = rl.load_texture(thread, &filename) {
+                    let texture_id = texture.id.try_into().unwrap();
+                    let mut textures = TEXTURES.lock().unwrap();
+                    textures.insert(texture_id, texture);
+                    return Ok(Value::Int(texture_id));
+                } else {
+                    eprintln!("Failed to load texture");
+                }
+            }
+        }
+    }
+    Err(format!("Init before loading"))
+}
+
+// draw texture
+pub fn sk_draw_texture(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
+    let (texture_id, x, y) = (
+        args[0].to_int(), args[1].to_int(), args[2].to_int()
+    );
+    let (r,g,b) = to_color(args[3].to_string()?);
+    unsafe {
+        if let Some(d) = D.as_mut() {
+            let textures = TEXTURES.lock().unwrap();
+            if let Some(texture) = textures.get(&texture_id) {
+                d.draw_texture(
+                    texture,
+                    x,
+                    y,
+                    Color::new(r, g, b, 255u8),
+                );
+            }
+        }
+    }
+    return Ok(Value::None);
+}
+
 // Print
 fn sk_print(vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
     if vm.args.extensions.contains(&"va-print".to_string()) {

@@ -110,10 +110,13 @@ fn _get_builtins(extended: bool) -> Vec<(String, i32)> {
         ("string", 1),
         ("byte", 1),
         ("__burlap_range", 2),
-        ("clear_background",1),
-        ("draw_texture",4),
-        ("draw_text",5),
-        ("next_frame",0),
+        ("init", 3),
+        ("should_close", 0),
+        ("begin_drawing", 0),
+        ("clear_background", 1),
+        ("draw_text", 5),
+        ("load_texture", 1),
+        ("draw_texture", 4),
     ].iter().map(|(n, a)| (n.to_string(), *a)).collect();
     if extended {
         let mut tmp = vec![

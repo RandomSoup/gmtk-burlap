@@ -8,9 +8,6 @@ use std::fs;
 use std::env;
 use std::path::PathBuf;
 
-use macroquad::prelude::*;
-use crate::asset_manager::AssetManager;
-
 #[cfg(feature = "cffi")]
 mod cffi;
 #[cfg(target_family = "wasm")]
@@ -22,7 +19,6 @@ mod lexer;
 mod parser;
 mod value;
 mod vm;
-mod asset_manager;
 
 use crate::compiler::compile;
 use crate::common::{print_err, ErrType};
@@ -229,34 +225,22 @@ fn main() {
     }
 }*/
 
-#[macroquad::main("BasicShapes")]
-async fn main() {
+fn main() {
     let mut args = Arguments::new();
     args.extensions.pop();
     args.source = THE_SOURCE.to_string();
 
-    let mut assets = AssetManager{ textures: Default::default() };
-    assets.load_all();
-
     let Some(ast) = to_ast(&mut args, None) else {
-         panic!("Failed to convert to AST!");
-     };
-     let mut vm = Vm::new(args.clone(), assets);
-     if !compile(ast, &mut args, &mut vm.program) {
-         panic!("Failed to convert to compile!");
-     }
-     // Run
-     if !run(&mut vm) {
-         panic!("Runtime error!");
-     }
-
-    /*loop {
-        clear_background(RED);
-        draw_text("HELLO", 20.0, 20.0, 20.0, DARKGRAY);
-        println!("Next frame...");
-        next_frame().await;
-        println!("Next frame!");
-    }*/
+        panic!("Failed to convert to AST!");
+    };
+    let mut vm = Vm::new(args.clone());
+    if !compile(ast, &mut args, &mut vm.program) {
+        panic!("Failed to convert to compile!");
+    }
+    // Run
+    if !run(&mut vm) {
+       panic!("Runtime error!");
+    }
 }
 
 // #[cfg(target_family = "wasm")]

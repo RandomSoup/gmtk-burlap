@@ -1,13 +1,12 @@
 #![allow(clippy::needless_return, clippy::print_literal, dead_code)]
 
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::prelude::*;
+//#[cfg(target_family = "wasm")]
+//use wasm_bindgen::prelude::*;
 
 #[macro_use] extern crate impl_ops;
 use std::fs;
 use std::env;
 use std::path::PathBuf;
-use std::process::exit;
 
 use macroquad::prelude::*;
 use crate::asset_manager::AssetManager;
@@ -21,8 +20,6 @@ mod common;
 mod compiler;
 mod lexer;
 mod parser;
-#[cfg(not(target_family = "wasm"))]
-#[cfg(feature = "repl")]
 mod value;
 mod vm;
 mod asset_manager;
@@ -234,7 +231,6 @@ fn main() {
 
 #[macroquad::main("BasicShapes")]
 async fn main() {
-
     let mut args = Arguments::new();
     args.extensions.pop();
     args.source = THE_SOURCE.to_string();
@@ -254,16 +250,13 @@ async fn main() {
          panic!("Runtime error!");
      }
 
-    // loop {
-    //     clear_background(RED);
-    //
-    //     draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
-    //     draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
-    //     draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
-    //     draw_text("HELLO", 20.0, 20.0, 20.0, DARKGRAY);
-    //    // draw_texture(*assets.textures.get("test").expect("wuh oh!"), 20., 20., WHITE);
-    //     next_frame().await
-    // }
+    /*loop {
+        clear_background(RED);
+        draw_text("HELLO", 20.0, 20.0, 20.0, DARKGRAY);
+        println!("Next frame...");
+        next_frame().await;
+        println!("Next frame!");
+    }*/
 }
 
 // #[cfg(target_family = "wasm")]

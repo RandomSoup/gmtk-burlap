@@ -1,5 +1,6 @@
 loop (while true) {
     clear_background("RED");
     #draw_texture("test",20,20,"WHITE");
-    draw_text("THIS IS A HORRIBLE TIMELINE!!",20,20,20,"DARKGRAY");
+    draw_text("AGAGAAGAGAGAG",20,20,20,"DARKGRAY");
+    next_frame();
 }

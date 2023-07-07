@@ -1,3 +1,4 @@
+use futures::executor::block_on;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::fs::OpenOptions;
@@ -180,6 +181,7 @@ impl Vm {
         functies.insert("byte".to_string(), sk_byte as Functie);
         functies.insert("clear_background".to_string(), sk_clear_background as Functie);
         functies.insert("draw_text".to_string(), sk_draw_text as Functie);
+        functies.insert("next_frame".to_string(), sk_next_frame as Functie);
         // Non-togglable internals
         functies.insert("__burlap_range".to_string(), sk_fastrange as Functie);
         // Burlap internal functies
@@ -521,8 +523,8 @@ impl Vm {
     }
 }
 
-fn get_col_from_str(str: &str) -> Color{
-    return match (str){
+fn get_col_from_str(str: String) -> Result<Color, String> {
+    return Ok(match str.as_str() {
         "WHITE" => WHITE,
         "GREEN" => GREEN,
         "RED" => RED,
@@ -530,18 +532,34 @@ fn get_col_from_str(str: &str) -> Color{
         "YELLOW" => YELLOW,
         "BLACK" => BLACK,
         "DARKGRAY" => DARKGRAY,
-        _ => WHITE
-    }
+        _ => return Err(format!("Cannot convert {} to a color", str)),
+    });
 }
 
-fn sk_clear_background(vm: &mut vm, args: Vec<Value>) -> Result<Value, String> {
-    let col = get_col_from_str((args[0].to_string()?).as_str());
+fn sk_clear_background(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
+    let col = get_col_from_str(args[0].to_string()?)?;
     clear_background(col);
     return Ok(Value::None);
 }
 
-fn sk_draw_text(vm: &mut vm, args:Vec<Value>) -> Result<Value, String> {
-    draw_text((args[0].to_string()?).as_str(),args[1].to_float(),args[2].to_float(),args[3].to_float(),get_col_from_str((args[0].to_string()?).as_str()));
+fn sk_next_frame(_vm: &mut Vm, _args: Vec<Value>) -> Result<Value, String> {
+    println!("Next frame...");
+    block_on(next_frame());
+    println!("Next frame!");
+    return Ok(Value::None);
+}
+
+fn sk_draw_text(_vm: &mut Vm, args:Vec<Value>) -> Result<Value, String> {
+    let text = args[0].to_string()?;
+    let (x, y) = (args[1].to_float(), args[2].to_float());
+    let font_size = args[3].to_float();
+    let color = get_col_from_str(args[4].to_string()?)?;
+    draw_text(
+        text.as_str(),
+        x, y,
+        font_size,
+        color
+    );
     return Ok(Value::None);
 }
 

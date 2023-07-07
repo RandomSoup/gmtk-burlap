@@ -1,8 +1,4 @@
-use std::env;
-use std::fs;
-use std::io::{BufReader, BufRead};
 use crate::THE_SOURCE;
-
 
 // Stream
 #[derive(Debug, Clone)]
@@ -116,7 +112,8 @@ fn _get_builtins(extended: bool) -> Vec<(String, i32)> {
         ("__burlap_range", 2),
         ("clear_background",1),
         ("draw_texture",4),
-        ("draw_text",5)
+        ("draw_text",5),
+        ("next_frame",0),
     ].iter().map(|(n, a)| (n.to_string(), *a)).collect();
     if extended {
         let mut tmp = vec![

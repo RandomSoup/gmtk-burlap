@@ -1,0 +1,3 @@
+[submodule "raylib-rs"]
+	path = raylib-rs
+	url = https://github.com/bigjango13/raylib-rs

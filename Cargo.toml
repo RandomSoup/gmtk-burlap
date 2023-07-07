@@ -21,7 +21,7 @@ libffi = {version = "3.2.0", optional = true}
 wasm-bindgen = {version = "0.2", optional = true}
 console_error_panic_hook = {version = "0.1.7", optional = true}
 # For graphics
-raylib = "3.7.0"
+raylib = {version = "3.7.0", path = "./raylib-rs/raylib"}
 rust-embed="6.8.1"
 lazy_static = "1.4.0"
 

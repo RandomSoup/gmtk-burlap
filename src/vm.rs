@@ -13,6 +13,7 @@ use crate::compiler::Program;
 use crate::value::{FileInfo, Value};
 
 use rustc_hash::FxHashMap;
+use crate::asset_manager::AssetManager;
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
@@ -112,6 +113,7 @@ pub enum Opcode {
     JMPNT,
 }
 
+use macroquad::prelude::*;
 
 // A functie is a sack functions implemented in rust
 type Functie = fn(&mut Vm, Vec<Value>) -> Result<Value, String>;
@@ -120,6 +122,7 @@ type Functie = fn(&mut Vm, Vec<Value>) -> Result<Value, String>;
 pub struct Vm {
     // Extensions
     pub args: Arguments,
+    pub assets: AssetManager,
     // File name
     pub filename: String,
 
@@ -151,7 +154,7 @@ pub struct Vm {
 
 impl Vm {
     // Init
-    pub fn new(args: Arguments) -> Vm {
+    pub fn new(args: Arguments, assets: AssetManager) -> Vm {
         // Builtin functions
         let mut functies = FxHashMap::with_capacity_and_hasher(
             16, Default::default()
@@ -175,6 +178,8 @@ impl Vm {
         functies.insert("float".to_string(), sk_float as Functie);
         functies.insert("string".to_string(), sk_string as Functie);
         functies.insert("byte".to_string(), sk_byte as Functie);
+        functies.insert("clear_background".to_string(), sk_clear_background as Functie);
+        functies.insert("draw_text".to_string(), sk_draw_text as Functie);
         // Non-togglable internals
         functies.insert("__burlap_range".to_string(), sk_fastrange as Functie);
         // Burlap internal functies
@@ -211,7 +216,8 @@ impl Vm {
             var_names: vec![], var_vals: vec![], jump: false,
             stack: vec![], scope: vec![], call_frames: vec![],
             at: 0, var_min: 0, program: Program::new(),
-            filename: "".to_string()
+            filename: "".to_string(),
+            assets: assets
         }
     }
 
@@ -513,6 +519,30 @@ impl Vm {
         }
         self.jump = true;
     }
+}
+
+fn get_col_from_str(str: &str) -> Color{
+    return match (str){
+        "WHITE" => WHITE,
+        "GREEN" => GREEN,
+        "RED" => RED,
+        "BLUE" => BLUE,
+        "YELLOW" => YELLOW,
+        "BLACK" => BLACK,
+        "DARKGRAY" => DARKGRAY,
+        _ => WHITE
+    }
+}
+
+fn sk_clear_background(vm: &mut vm, args: Vec<Value>) -> Result<Value, String> {
+    let col = get_col_from_str((args[0].to_string()?).as_str());
+    clear_background(col);
+    return Ok(Value::None);
+}
+
+fn sk_draw_text(vm: &mut vm, args:Vec<Value>) -> Result<Value, String> {
+    draw_text((args[0].to_string()?).as_str(),args[1].to_float(),args[2].to_float(),args[3].to_float(),get_col_from_str((args[0].to_string()?).as_str()));
+    return Ok(Value::None);
 }
 
 // Builtin Functions (prefixed with 'sk_')

@@ -20,6 +20,9 @@ libffi = {version = "3.2.0", optional = true}
 # For wasm
 wasm-bindgen = {version = "0.2", optional = true}
 console_error_panic_hook = {version = "0.1.7", optional = true}
+# For graphics
+macroquad = "0.3.26"
+rust-embed="6.8.1"
 
 [features]
 default = ["fancyrepl"]
@@ -31,10 +34,10 @@ wasm = ["wasm-bindgen", "console_error_panic_hook"]
 [profile.release]
 size.opt-level = "s"
 
-[[bin]]
-name = "burlap"
-path = "src/lib.rs"
-
-[lib]
-crate-type = ["cdylib", "rlib"]
+#[[bin]]
+#name = "burlap"
+#path = "src/main.rs"
+#
+#[lib]
+#crate-type = ["cdylib", "rlib"]
 

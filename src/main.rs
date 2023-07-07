@@ -9,6 +9,9 @@ use std::env;
 use std::path::PathBuf;
 use std::process::exit;
 
+use macroquad::prelude::*;
+use crate::asset_manager::AssetManager;
+
 #[cfg(feature = "cffi")]
 mod cffi;
 #[cfg(target_family = "wasm")]
@@ -20,20 +23,16 @@ mod lexer;
 mod parser;
 #[cfg(not(target_family = "wasm"))]
 #[cfg(feature = "repl")]
-mod repl;
 mod value;
 mod vm;
+mod asset_manager;
 
 use crate::compiler::compile;
 use crate::common::{print_err, ErrType};
 use crate::lexer::lex;
 use crate::parser::{parse, ASTNode};
-#[cfg(not(target_family = "wasm"))]
-#[cfg(feature = "repl")]
-use crate::repl::repl;
 use crate::vm::{run, Vm};
 
-#[cfg(target_family = "wasm")]
 pub static THE_SOURCE: &str = include_str!("main.sk");
 
 #[derive(Clone)]
@@ -187,7 +186,7 @@ fn get_args() -> Result<Arguments, bool> {
     return Ok(args);
 }
 
-#[cfg(not(target_family = "wasm"))]
+/*#[cfg(not(target_family = "wasm"))]
 fn main() {
     // Parse args
     let mut args = match get_args() {
@@ -231,29 +230,63 @@ fn main() {
             exit(1);
         }
     }
-}
+}*/
 
-#[cfg(target_family = "wasm")]
-#[wasm_bindgen]
-#[cfg(target_family = "wasm")]
-pub fn main() {
-    // Set up panics
-    extern crate console_error_panic_hook;
-    use std::panic;
-    panic::set_hook(Box::new(console_error_panic_hook::hook));
+#[macroquad::main("BasicShapes")]
+async fn main() {
 
     let mut args = Arguments::new();
     args.extensions.pop();
     args.source = THE_SOURCE.to_string();
+
+    let mut assets = AssetManager{ textures: Default::default() };
+    assets.load_all();
+
     let Some(ast) = to_ast(&mut args, None) else {
-        panic!("Failed to convert to AST!");
-    };
-    let mut vm = Vm::new(args.clone());
-    if !compile(ast, &mut args, &mut vm.program) {
-        panic!("Failed to convert to compile!");
-    }
-    // Run
-    if !run(&mut vm) {
-        panic!("Runtime error!");
-    }
+         panic!("Failed to convert to AST!");
+     };
+     let mut vm = Vm::new(args.clone(), assets);
+     if !compile(ast, &mut args, &mut vm.program) {
+         panic!("Failed to convert to compile!");
+     }
+     // Run
+     if !run(&mut vm) {
+         panic!("Runtime error!");
+     }
+
+    // loop {
+    //     clear_background(RED);
+    //
+    //     draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
+    //     draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
+    //     draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
+    //     draw_text("HELLO", 20.0, 20.0, 20.0, DARKGRAY);
+    //    // draw_texture(*assets.textures.get("test").expect("wuh oh!"), 20., 20., WHITE);
+    //     next_frame().await
+    // }
 }
+
+// #[cfg(target_family = "wasm")]
+// #[wasm_bindgen]
+// #[cfg(target_family = "wasm")]
+// pub fn main() {
+//     // Set up panics
+//     extern crate console_error_panic_hook;
+//     use std::panic;
+//     panic::set_hook(Box::new(console_error_panic_hook::hook));
+//
+//     let mut args = Arguments::new();
+//     args.extensions.pop();
+//     args.source = THE_SOURCE.to_string();
+//     let Some(ast) = to_ast(&mut args, None) else {
+//         panic!("Failed to convert to AST!");
+//     };
+//     let mut vm = Vm::new(args.clone());
+//     if !compile(ast, &mut args, &mut vm.program) {
+//         panic!("Failed to convert to compile!");
+//     }
+//     // Run
+//     if !run(&mut vm) {
+//         panic!("Runtime error!");
+//     }
+// }

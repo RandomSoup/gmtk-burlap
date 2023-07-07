@@ -1,12 +1,8 @@
 use std::env;
 use std::fs;
 use std::io::{BufReader, BufRead};
-#[cfg(target_family = "wasm")]
 use crate::THE_SOURCE;
 
-#[cfg(not(target_family = "wasm"))]
-#[cfg(feature = "repl")]
-use crate::repl::get_repl_line;
 
 // Stream
 #[derive(Debug, Clone)]
@@ -65,43 +61,12 @@ pub fn print_err(msg: &str, errtype: ErrType, color: bool) -> String {
     }
 }
 
-#[cfg(target_family = "wasm")]
+
 fn get_line(stream: &Stream) -> String {
     THE_SOURCE.lines().nth(stream.line - 1)
         .expect("failed to read file for errors").to_string()
 }
 
-#[cfg(not(target_family = "wasm"))]
-fn get_line(stream: &Stream) -> String {
-    // Special cases
-    if stream.name == "<cli>" {
-        let mut args = env::args();
-        args.position(|x| x == "-");
-        return args.next()
-            .unwrap().lines().nth(stream.line - 1)
-            .expect("failed to read file for errors").to_string()
-    } else if stream.name == "<stdin>" {
-        #[cfg(not(target_family = "wasm"))]
-        #[cfg(feature = "repl")]
-        {
-            return get_repl_line().clone().lines().nth(stream.line - 1)
-                .unwrap().to_string();
-        }
-        #[cfg(not(feature = "repl"))]
-        {
-           panic!("This shouldn't be possible, what did you do!!");
-        }
-    }
-
-    let name = stream.name.clone();
-    // Open
-    let Ok(file) = fs::File::open(name) else {
-        panic!("Failed to open file for error printing!");
-    };
-    // Read
-    return BufReader::new(file).lines().nth(stream.line - 1)
-        .expect("failed to read file for errors").unwrap()
-}
 
 pub fn err(stream: &Stream, msg: &str, errtype: ErrType, color: bool) {
     let line = get_line(stream);
@@ -149,6 +114,9 @@ fn _get_builtins(extended: bool) -> Vec<(String, i32)> {
         ("string", 1),
         ("byte", 1),
         ("__burlap_range", 2),
+        ("clear_background",1),
+        ("draw_texture",4),
+        ("draw_text",5)
     ].iter().map(|(n, a)| (n.to_string(), *a)).collect();
     if extended {
         let mut tmp = vec![

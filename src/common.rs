@@ -117,6 +117,11 @@ fn _get_builtins(extended: bool) -> Vec<(String, i32)> {
         ("draw_text", 5),
         ("load_texture", 1),
         ("draw_texture", 4),
+        // New
+        ("draw_texture_ex", 6),
+        ("key_pressed", 1),
+        ("is_mouse_button_pressed", 1),
+        ("get_mouse_pos", 0),
     ].iter().map(|(n, a)| (n.to_string(), *a)).collect();
     if extended {
         let mut tmp = vec![

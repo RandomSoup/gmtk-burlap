@@ -179,6 +179,10 @@ impl Vm {
         functies.insert("load_texture".to_string(), sk_load_texture as Functie);
         functies.insert("draw_texture".to_string(), sk_draw_texture as Functie);
         functies.insert("clear_background".to_string(), sk_clear_background as Functie);
+        functies.insert("draw_texture_ex".to_string(), sk_draw_texture_ex as Functie);
+        functies.insert("key_pressed".to_string(), sk_key_pressed as Functie);
+        functies.insert("is_mouse_button_pressed".to_string(), sk_is_mouse_button_pressed as Functie);
+        functies.insert("get_mouse_pos".to_string(), sk_get_mouse_pos as Functie);
         // Builtins
         functies.insert("print".to_string(), sk_print as Functie);
         functies.insert("input".to_string(), sk_input as Functie);
@@ -613,6 +617,108 @@ fn sk_clear_background(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> 
         }
     }
      Ok(Value::None)
+}
+
+// Keys
+fn sk_key_pressed(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
+    unsafe {
+        // convert the string to a KeyboardKey
+        let key = match args[0].to_string()?.as_str() {
+            "A" => KeyboardKey::KEY_A,
+            "B" => KeyboardKey::KEY_B,
+            "C" => KeyboardKey::KEY_C,
+            "D" => KeyboardKey::KEY_D,
+            "E" => KeyboardKey::KEY_E,
+            "F" => KeyboardKey::KEY_F,
+            "G" => KeyboardKey::KEY_G,
+            "H" => KeyboardKey::KEY_H,
+            "I" => KeyboardKey::KEY_I,
+            "J" => KeyboardKey::KEY_J,
+            "K" => KeyboardKey::KEY_K,
+            "L" => KeyboardKey::KEY_L,
+            "M" => KeyboardKey::KEY_M,
+            "N" => KeyboardKey::KEY_N,
+            "O" => KeyboardKey::KEY_O,
+            "P" => KeyboardKey::KEY_P,
+            "Q" => KeyboardKey::KEY_Q,
+            "R" => KeyboardKey::KEY_R,
+            "S" => KeyboardKey::KEY_S,
+            "T" => KeyboardKey::KEY_T,
+            "U" => KeyboardKey::KEY_U,
+            "V" => KeyboardKey::KEY_V,
+            "W" => KeyboardKey::KEY_W,
+            "X" => KeyboardKey::KEY_X,
+            "Y" => KeyboardKey::KEY_Y,
+            "Z" => KeyboardKey::KEY_Z,
+            "SPACE" => KeyboardKey::KEY_SPACE,
+            "ENTER" => KeyboardKey::KEY_ENTER,
+            "BACKSPACE" => KeyboardKey::KEY_BACKSPACE,
+            "RIGHT" => KeyboardKey::KEY_RIGHT,
+            "LEFT" => KeyboardKey::KEY_LEFT,
+            "UP" => KeyboardKey::KEY_UP,
+            "DOWN" => KeyboardKey::KEY_DOWN,
+            k => return Err(format!("unknown key {}", k)),
+        };
+
+        Ok(Value::Bool(if let Some(rl) = RL.as_ref() {
+            rl.is_key_pressed(key)
+        } else {
+            false
+        }))
+    }
+}
+
+fn sk_draw_texture_ex(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String> {
+    let texture_id = args[0].to_int();
+    let (x, y) = (args[1].to_int(), args[2].to_int());
+    let (rot, scale) = (args[3].to_int(), args[4].to_int());
+    let (r, g, b) = to_color(args[5].to_string()?);
+    unsafe {
+        if let Some(d) = D.as_mut() {
+            let textures = TEXTURES.lock().unwrap();
+            if let Some(texture) = textures.get(&texture_id) {
+                d.draw_texture_ex(
+                    texture,
+                    Vector2::new(x as f32, y as f32),
+                    rot as f32,
+                    scale as f32,
+                    Color::new(r, g, b, 255u8),
+                );
+            }
+        }
+    }
+    Ok(Value::None)
+}
+
+fn sk_is_mouse_button_pressed(_vm: &mut Vm, args: Vec<Value>) -> Result<Value, String>{
+    unsafe {
+        // convert the string to a MouseButton
+        let button = match args[0].to_string()?.as_str() {
+            "LEFT" => MouseButton::MOUSE_LEFT_BUTTON,
+            "RIGHT" => MouseButton::MOUSE_RIGHT_BUTTON,
+            "MIDDLE" => MouseButton::MOUSE_MIDDLE_BUTTON,
+            _ => MouseButton::MOUSE_LEFT_BUTTON,
+        };
+
+        Ok(Value::Bool(if let Some(rl) = RL.as_ref() {
+            rl.is_mouse_button_pressed(button)
+        } else {
+            false
+        }))
+    }
+}
+
+fn sk_get_mouse_pos(_vm: &mut Vm, _args: Vec<Value>) -> Result<Value, String> {
+    unsafe {
+        Ok(if let Some(rl) = RL.as_ref() {
+            Value::FastList(vec![
+                Value::Int(rl.get_mouse_x() as i32),
+                Value::Int(rl.get_mouse_y() as i32)
+            ])
+        } else {
+            Value::None
+        })
+    }
 }
 
 // Draw text

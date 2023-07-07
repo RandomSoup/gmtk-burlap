@@ -4,9 +4,53 @@ let screenheight = 450;
 init(screenwidth, screenheight, "Hello, Burlap!");
 let logo = load_texture("logo.png");
 
+let s_logo = [
+    x: screenwidth/2 - 128, y: screenheight/2 - 128,
+    sx: 0, sy: 0,
+    active: false
+];
+functi render_sprites() {
+    draw_texture(logo, s_logo["x"], s_logo["y"], "gray");
+    if s_logo["active"] && s_logo["y"] <= screenheight-(128*2) {
+        s_logo["sy"] -= 0.8;
+        s_logo["sx"] *= 0.99;
+        s_logo["y"] -= s_logo["sy"];
+        s_logo["x"] -= s_logo["sx"];
+        if s_logo["y"] > screenheight-(128*2) {
+            s_logo["y"] = screenheight-(128*2);
+            s_logo["sy"] = 0;
+        }
+        if s_logo["y"] < 0 {
+            s_logo["y"] = 0;
+            s_logo["sy"] = 0;
+        }
+        if s_logo["x"] < -(128*2) {
+            s_logo["x"] = screenwidth;
+        }
+        if s_logo["x"] > screenwidth {
+            s_logo["x"] = -(128*2);
+        }
+    }
+}
+
 loop (while !should_close()) {
     begin_drawing();
     clear_background("raywhite");
     draw_text("this IS a texture!", 350, 370, 10, "gray");
-    draw_texture(logo, screenwidth/2 - 128, screenheight/2 - 128, "gray");
+    if is_mouse_button_pressed("left") {
+        # Is it pressing the logo?
+        let pos = get_mouse_pos();
+        if (pos[0] >= s_logo["x"] && pos[0] <= s_logo["x"] + (128*2))
+            && (pos[1] >= s_logo["y"] && pos[1] <= s_logo["y"] + (128*2))
+        {
+            print("ACTIVE!");
+            s_logo["active"] = true;
+            s_logo["sy"] += 12;
+            s_logo["sx"] += 6;
+            if pos[0] <= s_logo["x"] + 128 {
+                s_logo["sx"] -= 12;
+            }
+        }
+    }
+    render_sprites();
 }

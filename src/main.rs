@@ -225,7 +225,7 @@ fn main() {
     }
 }*/
 
-fn main() {
+pub fn main() {
     let mut args = Arguments::new();
     args.extensions.pop();
     args.source = THE_SOURCE.to_string();

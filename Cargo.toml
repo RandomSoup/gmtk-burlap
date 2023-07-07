@@ -34,11 +34,3 @@ wasm = ["wasm-bindgen", "console_error_panic_hook"]
 
 [profile.release]
 size.opt-level = "s"
-
-[[bin]]
-name = "burlap"
-path = "src/lib.rs"
-
-[lib]
-crate-type = ["cdylib", "rlib"]
-

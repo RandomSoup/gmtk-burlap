@@ -2,7 +2,7 @@ let screenwidth = 800;
 let screenheight = 450;
 
 init(screenwidth, screenheight, "Hello, Burlap!");
-let logo = load_texture("logo.png");
+let logo = load_texture("res/logo.png");
 
 let s_logo = [
     x: screenwidth/2 - 128, y: screenheight/2 - 128,
